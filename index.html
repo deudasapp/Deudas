@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Match & Paga - Ayuda Mutua</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root { --primary: #ff3366; --bg: #f5f7fa; --text: #333; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .app-container { width: 100%; max-width: 420px; background: #fff; height: 100vh; max-height: 850px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; position: relative; border-radius: 20px; }
+    header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; background: #fff; }
+    header h1 { font-size: 1.2rem; color: var(--primary); margin: 0; }
+    .role-toggle { font-size: 0.8rem; background: #eee; border: none; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; }
+    .content { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
+    .card { background: #fff; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); padding: 20px; border: 1px solid #eee; margin-bottom: 20px; position: relative; }
+    .badge-creator { background: gold; color: #333; font-size: 0.7rem; padding: 3px 8px; border-radius: 10px; font-weight: bold; float: right; }
+    .card h3 { margin: 10px 0 5px 0; }
+    .amount { font-size: 1.5rem; font-weight: bold; color: #27ae60; margin: 10px 0; }
+    .actions { display: flex; justify-content: space-around; margin-top: auto; padding: 10px 0; }
+    .btn-action { width: 60px; height: 60px; border-radius: 50%; border: none; font-size: 1.5rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; background: white; }
+    .btn-pass { color: #e74c3c; border: 2px solid #ff7675; }
+    .btn-match { color: #2ecc71; border: 2px solid #55efc4; }
+    input, textarea, select { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+    button.primary { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <header>
+    <h1>Match & Paga 💸</h1>
+    <button class="role-toggle" onclick="toggleRole()">Cambiar a Deudor</button>
+  </header>
+
+  <div class="content" id="main-content"></div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://aaalyouareyuqksaosbt.supabase.co';
+  const SUPABASE_ANON_KEY = 'Sb_publishable_tkqBQ_1e9UECadia9_34-w_i_c_flEj';
+
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  let currentRole = 'sponsor';
+
+  function renderApp() {
+    const container = document.getElementById('main-content');
+    if (currentRole === 'sponsor') {
+      container.innerHTML = `
+        <h2>Explorar Deudas</h2>
+        <p style="font-size:0.85rem; color:#666;">Deslizá o hacé Match para conectar y ayudar.</p>
+        <div id="card-container">Cargando facturas...</div>
+      `;
+      loadInvoices();
+    } else {
+      container.innerHTML = `
+        <h2>Publicar tu Deuda</h2>
+        <p style="font-size:0.85rem; color:#666;">Cargá tu factura para que un mecenas la vea.</p>
+        <input type="text" id="name" placeholder="Tu Nombre">
+        <input type="text" id="title" placeholder="Ej: Factura de Luz / Alquiler">
+        <textarea id="desc" placeholder="Breve historia o descripción"></textarea>
+        <input type="number" id="amount" placeholder="Monto en $">
+        <button class="primary" onclick="submitInvoice()">Publicar Factura</button>
+      `;
+    }
+  }
+
+  function toggleRole() {
+    currentRole = currentRole === 'sponsor' ? 'debtor' : 'sponsor';
+    document.querySelector('.role-toggle').innerText = currentRole === 'sponsor' ? 'Cambiar a Deudor' : 'Cambiar a Mecenas';
+    renderApp();
+  }
+
+  async function loadInvoices() {
+    const { data, error } = await supabaseClient
+      .from('invoices')
+      .select('*')
+      .eq('is_paid', false)
+      .order('is_creator', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    const container = document.getElementById('card-container');
+    if (error || !data || data.length === 0) {
+      container.innerHTML = `<p>No hay deudas cargadas todavía. ¡Sé el primero en subir una!</p>`;
+      return;
+    }
+
+    const inv = data[0];
+    container.innerHTML = `
+      <div class="card">
+        ${inv.is_creator ? '<span class="badge-creator">★ DESTACADO</span>' : ''}
+        <h3>${inv.title}</h3>
+        <p style="color:#777; font-size:0.9rem;">Por: <b>${inv.user_name}</b></p>
+        <p>${inv.description}</p>
+        <div class="amount">$ ${inv.amount}</div>
+      </div>
+      <div class="actions">
+        <button class="btn-action btn-pass" onclick="loadInvoices()">✕</button>
+        <button class="btn-action btn-match" onclick="alert('¡Match exitoso! Se abrió el canal de chat con ${inv.user_name}')">❤️</button>
+      </div>
+    `;
+  }
+
+  async function submitInvoice() {
+    const name = document.getElementById('name').value;
+    const title = document.getElementById('title').value;
+    const desc = document.getElementById('desc').value;
+    const amount = document.getElementById('amount').value;
+
+    if(!name || !title || !amount) {
+      alert('Completá los campos obligatorios.');
+      return;
+    }
+
+    const { error } = await supabaseClient.from('invoices').insert([
+      { user_name: name, title: title, description: desc, amount: parseFloat(amount), category: 'General', is_creator: true }
+    ]);
+
+    if(error) {
+      alert('Error al publicar: ' + error.message);
+    } else {
+      alert('¡Factura publicada con éxito!');
+      currentRole = 'sponsor';
+      renderApp();
+    }
+  }
+
+  renderApp();
+</script>
+
+</body>
+  </html>
+  
